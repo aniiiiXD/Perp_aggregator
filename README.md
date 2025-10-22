@@ -150,34 +150,7 @@ Once the application is running, you can access:
 - `ws://localhost:8000/api/v1/ws/positions` - Real-time position updates
 - `ws://localhost:8000/api/v1/ws/portfolio` - Real-time portfolio updates
 
-## Development Status
 
-### Completed Components
-- ✅ Project structure and configuration
-- ✅ Core models and enums
-- ✅ Event bus system with Redis
-- ✅ Main orchestrator with circuit breaker pattern
-- ✅ Portfolio aggregator
-- ✅ Base client interface
-- ✅ Complete API endpoints
-- ✅ WebSocket streaming endpoints
-- ✅ Comprehensive documentation
-
-### TODO - Venue Client Implementations
-- 🔄 Hyperliquid client implementation
-- 🔄 Lighter client implementation  
-- 🔄 Trade.xyz client implementation
-- 🔄 WebSocket handlers for each venue
-- 🔄 Authentication modules
-- 🔄 Data normalization layers
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Implement your changes
-4. Add tests for new functionality
-5. Submit a pull request
 
 ## License
 
