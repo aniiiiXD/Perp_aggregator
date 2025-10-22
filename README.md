@@ -1,138 +1,188 @@
-# Perp DEX Aggregator
+# Unified Trading Terminal
 
-A real-time perpetual futures DEX aggregator that provides price feeds and order routing across Hyperliquid and Lighter DEX protocols.
+A comprehensive trading platform that provides a single interface for executing trades across multiple decentralized exchanges (DEXs) including Hyperliquid, Lighter, and trade.xyz.
 
 ## Features
 
-- Real-time price aggregation from Hyperliquid and Lighter
-- WebSocket connections for live market data
-- REST API for trading operations
-- Order routing and execution simulation
-- Position management and analytics
-- Redis caching for performance
-- Docker containerization
+- **Multi-Venue Trading**: Execute trades across Hyperliquid, Lighter, and trade.xyz from a single interface
+- **Real-time Data**: WebSocket connections for live market data, order updates, and position tracking
+- **Portfolio Aggregation**: Consolidated view of positions, balances, and PnL across all venues
+- **Event-Driven Architecture**: Redis-based event bus for real-time communication between components
+- **Circuit Breaker Pattern**: Fault tolerance and graceful degradation when venues are unavailable
+- **Comprehensive API**: RESTful endpoints for all trading operations and data retrieval
+- **WebSocket Streaming**: Real-time data streams for market data, orders, positions, and portfolio updates
+
+## Architecture
+
+The system follows a microservice architecture with the following key components:
+
+### Core Components
+
+- **Main Orchestrator**: Central coordinator that routes requests to appropriate venue clients
+- **Event Bus**: Redis-based pub/sub system for real-time event communication
+- **Portfolio Aggregator**: Consolidates data from all venues for unified portfolio view
+- **Venue Clients**: Dedicated clients for each DEX (Hyperliquid, Lighter, trade.xyz)
+
+### API Layer
+
+- **Trading Endpoints**: Order placement, cancellation, and management
+- **Position Endpoints**: Position tracking and portfolio management
+- **Market Data Endpoints**: Real-time and historical market data
+- **Venue Endpoints**: Venue selection and status monitoring
+- **WebSocket Endpoints**: Real-time data streaming
 
 ## Project Structure
 
 ```
 app/
-├── main.py                 # FastAPI application entry point
+├── main.py                          # FastAPI entry point
 ├── core/
-│   ├── config.py          # Application configuration
-│   └── redis.py           # Redis client wrapper
+│   ├── config.py                    # App configuration
+│   ├── redis.py                     # Redis client
+│   ├── events.py                    # Event definitions
+│   └── exceptions.py                # Custom exceptions
 ├── models/
-│   └── market_data.py     # Data models and schemas
-├── services/
-│   └── dex_connector.py   # DEX WebSocket connectors
-├── websocket/
-│   └── manager.py         # WebSocket connection management
+│   ├── unified.py                   # Unified models (Order, Position, Balance)
+│   └── enums.py                     # Enums (OrderType, OrderSide, VenueEnum)
+├── orchestrator/
+│   ├── main_orchestrator.py         # Main request router
+│   ├── event_bus.py                 # Pub/sub event system
+│   └── portfolio_aggregator.py      # Portfolio data aggregation
+├── clients/
+│   ├── base_client.py               # Abstract base class for all clients
+│   ├── hyperliquid/                 # Hyperliquid client implementation
+│   ├── lighter/                     # Lighter client implementation
+│   └── tradexyz/                    # Trade.xyz client implementation
 └── api/
-    ├── routes.py          # Main API router
-    └── endpoints/         # API endpoint modules
-        ├── health.py      # Health check endpoints
-        ├── prices.py      # Price data endpoints
-        ├── trading.py     # Trading endpoints
-        ├── positions.py   # Position management
-        └── websocket.py   # WebSocket endpoint
+    ├── routes.py                    # Main router
+    └── endpoints/
+        ├── venues.py                # Venue management
+        ├── trading.py               # Order operations
+        ├── positions.py             # Position management
+        ├── market_data.py           # Market data
+        └── websocket.py             # WebSocket endpoints
 ```
 
-## Quick Start
+## Installation
 
-1. **Clone and setup**:
-   ```bash
-   git clone <repository>
-   cd perp-dex-aggregator
-   cp .env.example .env
-   ```
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd unified-trading-terminal
+```
 
-2. **Run with Docker**:
-   ```bash
-   docker-compose up --build
-   ```
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-3. **Or run locally**:
-   ```bash
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload
-   ```
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## API Endpoints
+4. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
 
-### Health
-- `GET /api/v1/health/` - Basic health check
-- `GET /api/v1/health/detailed` - Detailed system status
+5. Start Redis (required for event bus):
+```bash
+# Using Docker
+docker run -d -p 6379:6379 redis:alpine
 
-### Prices
-- `GET /api/v1/prices/aggregated/{pair}` - Get aggregated price for pair
-- `GET /api/v1/prices/pairs` - List available trading pairs
-- `GET /api/v1/prices/stats` - Price aggregation statistics
+# Or install Redis locally
+```
+
+6. Start the application:
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Configuration
+
+The application uses environment variables for configuration. Key settings include:
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `REDIS_URL`: Redis connection string
+- `HYPERLIQUID_WS_URL`: Hyperliquid WebSocket URL
+- `LIGHTER_WS_URL`: Lighter WebSocket URL
+- `TRADEXYZ_WS_URL`: Trade.xyz WebSocket URL (to be configured)
+- `PRICE_CACHE_TTL`: Price data cache TTL in seconds
+- `WS_HEARTBEAT_INTERVAL`: WebSocket heartbeat interval
+
+## API Documentation
+
+Once the application is running, you can access:
+
+- **API Documentation**: http://localhost:8000/docs
+- **Alternative Docs**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/health
+
+## Key Endpoints
 
 ### Trading
-- `POST /api/v1/trading/route` - Calculate optimal order routing
-- `POST /api/v1/trading/simulate` - Simulate order execution
-- `GET /api/v1/trading/dex-status` - DEX connection status
+- `POST /api/v1/trading/orders` - Place a new order
+- `DELETE /api/v1/trading/orders/{order_id}` - Cancel an order
+- `GET /api/v1/trading/orders` - Get order history
+- `GET /api/v1/trading/orders/active` - Get active orders
 
 ### Positions
-- `GET /api/v1/positions/` - Get user positions
-- `GET /api/v1/positions/analytics/summary` - Position analytics
+- `GET /api/v1/positions` - Get all positions
+- `GET /api/v1/positions/{symbol}` - Get position for specific symbol
+- `POST /api/v1/positions/{symbol}/close` - Close a position
 
-### WebSocket
-- `WS /api/v1/ws/connect` - Real-time price updates
+### Market Data
+- `GET /api/v1/market-data/ticker/{symbol}` - Get ticker data
+- `GET /api/v1/market-data/orderbook/{symbol}` - Get orderbook
+- `GET /api/v1/market-data/trades/{symbol}` - Get recent trades
 
-## WebSocket Usage
+### Venues
+- `GET /api/v1/venues` - List available venues
+- `GET /api/v1/venues/{venue}/status` - Get venue status
+- `POST /api/v1/venues/{venue}/connect` - Connect to venue
 
-Connect to `/api/v1/ws/connect` and send:
+### WebSocket Streams
+- `ws://localhost:8000/api/v1/ws/market-data` - Real-time market data
+- `ws://localhost:8000/api/v1/ws/orders` - Real-time order updates
+- `ws://localhost:8000/api/v1/ws/positions` - Real-time position updates
+- `ws://localhost:8000/api/v1/ws/portfolio` - Real-time portfolio updates
 
-```json
-{
-  "action": "subscribe",
-  "pair": "BTC-USD"
-}
-```
+## Development Status
 
-Receive price updates:
-```json
-{
-  "type": "price_update",
-  "data": {
-    "pair": "BTC-USD",
-    "best_bid": 45000,
-    "best_ask": 45010,
-    "best_bid_dex": "hyperliquid",
-    "best_ask_dex": "lighter",
-    "timestamp": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-## Development
-
-The application is structured for easy extension:
-
-- Add new DEX connectors in `services/dex_connector.py`
-- Extend data models in `models/market_data.py`
-- Add new API endpoints in `api/endpoints/`
-- Configure settings in `core/config.py`
-
-## Current Status
-
-This is a foundational implementation with:
+### Completed Components
 - ✅ Project structure and configuration
-- ✅ WebSocket management framework
-- ✅ DEX connector interfaces
-- ✅ REST API endpoints
-- ✅ Docker containerization
-- 🔄 Mock data for development
-- ⏳ Actual DEX integration (needs API documentation)
-- ⏳ Database integration
-- ⏳ Authentication system
-- ⏳ Order execution
+- ✅ Core models and enums
+- ✅ Event bus system with Redis
+- ✅ Main orchestrator with circuit breaker pattern
+- ✅ Portfolio aggregator
+- ✅ Base client interface
+- ✅ Complete API endpoints
+- ✅ WebSocket streaming endpoints
+- ✅ Comprehensive documentation
 
-## Next Steps
+### TODO - Venue Client Implementations
+- 🔄 Hyperliquid client implementation
+- 🔄 Lighter client implementation  
+- 🔄 Trade.xyz client implementation
+- 🔄 WebSocket handlers for each venue
+- 🔄 Authentication modules
+- 🔄 Data normalization layers
 
-1. Implement actual Hyperliquid and Lighter WebSocket protocols
-2. Add database models and migrations
-3. Implement real order execution
-4. Add comprehensive testing
-5. Add monitoring and logging
-6. Implement authentication system
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Implement your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For questions and support, please open an issue in the repository or contact the development team.

@@ -1,1 +1,1 @@
-# Perp DEX Aggregator - Main Application Package
+# Unified Trading Terminal Package

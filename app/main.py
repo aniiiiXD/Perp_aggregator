@@ -1,67 +1,109 @@
 """
-Main FastAPI application entry point
+FastAPI Entry Point for Unified Trading Terminal
+
+This is the main application entry point that initializes the FastAPI app,
+sets up middleware, includes routers, and configures the application lifecycle.
 """
-import asyncio
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import logging
 
 from app.core.config import settings
-from app.api.routes import api_router
-from app.websocket.manager import WebSocketManager
-from app.services.dex_connector import DEXConnectorService
 from app.core.redis import redis_client
+from app.api.routes import api_router
+from app.orchestrator.main_orchestrator import MainOrchestrator
+from app.orchestrator.event_bus import EventBus
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global instances
+orchestrator: MainOrchestrator = None
+event_bus: EventBus = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
+    """Application lifespan manager for startup and shutdown events"""
+    global orchestrator, event_bus
+    
     # Startup
-    await redis_client.connect()
+    logger.info("Starting Unified Trading Terminal...")
     
-    # Initialize WebSocket manager
-    ws_manager = WebSocketManager()
-    app.state.ws_manager = ws_manager
+    # Initialize Redis connection
+    await redis_client.initialize()
     
-    # Initialize DEX connector service
-    dex_service = DEXConnectorService(ws_manager)
-    app.state.dex_service = dex_service
+    # Initialize event bus
+    event_bus = EventBus(redis_client)
+    await event_bus.initialize()
     
-    # Start DEX connections
-    await dex_service.start_connections()
+    # Initialize main orchestrator
+    orchestrator = MainOrchestrator(event_bus)
+    await orchestrator.initialize()
+    
+    logger.info("Application startup complete")
     
     yield
     
     # Shutdown
-    await dex_service.stop_connections()
-    await redis_client.disconnect()
-
-
-def create_app() -> FastAPI:
-    """Create and configure FastAPI application"""
-    app = FastAPI(
-        title="Perp DEX Aggregator",
-        description="Real-time perpetual futures aggregator for Hyperliquid and Lighter",
-        version="1.0.0",
-        lifespan=lifespan
-    )
+    logger.info("Shutting down Unified Trading Terminal...")
     
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    if orchestrator:
+        await orchestrator.shutdown()
     
-    # Include API routes
-    app.include_router(api_router, prefix="/api/v1")
+    if event_bus:
+        await event_bus.shutdown()
     
-    return app
+    await redis_client.close()
+    
+    logger.info("Application shutdown complete")
 
 
-app = create_app()
+# Create FastAPI application
+app = FastAPI(
+    title="Unified Trading Terminal",
+    description="Single interface for trading across multiple DEXs",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API router
+app.include_router(api_router, prefix="/api/v1")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "services": {
+            "redis": await redis_client.health_check(),
+            "orchestrator": orchestrator.health_check() if orchestrator else False
+        }
+    }
+
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "Unified Trading Terminal API",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
 
 
 if __name__ == "__main__":

@@ -1,0 +1,1 @@
+# TODO: Implement Lighter client (similar structure to Hyperliquid)

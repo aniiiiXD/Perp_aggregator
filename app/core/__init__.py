@@ -1,1 +1,1 @@
-# Core application components
+# Core utilities and configuration

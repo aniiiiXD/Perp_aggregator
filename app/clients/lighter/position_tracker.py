@@ -1,0 +1,1 @@
+# TODO: Implement Lighter position tracking
